@@ -1,0 +1,13 @@
+{
+    "name": "calib/amazon-scraper",
+    "autoload": {
+        "psr-4": {
+            "Calib\\AmazonScraper\\": "src/"
+        }
+    },
+    "require": {
+        "guzzlehttp/guzzle": "^7.10",
+        "symfony/dom-crawler": "^7.3",
+        "symfony/css-selector": "^7.3"
+    }
+}
