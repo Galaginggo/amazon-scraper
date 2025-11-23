@@ -2,7 +2,7 @@
 session_start();
 
 // Redirect to login if the user is not logged in
-if (!isset($_SESSION['user'])) {
+if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit();
 }
@@ -10,53 +10,39 @@ if (!isset($_SESSION['user'])) {
 // Set timezone to Philippine Time
 date_default_timezone_set('Asia/Manila');
 
-$historyFile = __DIR__ . '/price_history.csv';
-$productUrl  = $_GET['url'] ?? '';
+// Load required files
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../src/Models/Product.php';
+require_once __DIR__ . '/../src/Models/PriceHistory.php';
 
-if (empty($productUrl)) {
+$userId = $_SESSION['user_id'];
+$username = $_SESSION['username'];
+
+$productId = intval($_GET['id'] ?? 0);
+
+if ($productId === 0) {
+    header('Location: index.php');
+    exit;
+}
+
+$productModel = new Product();
+$historyModel = new PriceHistory();
+
+// Get product (verify ownership)
+$product = $productModel->getProductById($productId, $userId);
+
+if (!$product) {
     header('Location: index.php');
     exit;
 }
 
 // Load all history entries for this product
-$historyEntries = [];
-if (file_exists($historyFile)) {
-    if (($fh = fopen($historyFile, 'r')) !== false) {
-        $header = fgetcsv($fh); // skip header
+$historyEntries = $historyModel->getProductHistory($productId, $userId);
 
-        while (($row = fgetcsv($fh)) !== false) {
-            if (count($row) < 5) continue;
+// Get price statistics
+$stats = $historyModel->getPriceStats($productId, $userId);
 
-            // Handle both old and new format
-            if (count($row) >= 6) {
-                [$timestamp, $title, $price, $rawPrice, $imageUrl, $url] = $row;
-            } else {
-                [$timestamp, $title, $price, $rawPrice, $url] = $row;
-                $imageUrl = null;
-            }
-
-            $url = trim($url);
-            if ($url === $productUrl) {
-                $historyEntries[] = [
-                    'timestamp' => $timestamp,
-                    'title'     => $title,
-                    'price'     => (float)$price,
-                    'raw_price' => $rawPrice,
-                    'image_url' => $imageUrl,
-                ];
-            }
-        }
-
-        fclose($fh);
-    }
-}
-
-// Sort by timestamp descending (newest first)
-usort($historyEntries, function($a, $b) {
-    return strcmp($b['timestamp'], $a['timestamp']);
-});
-
-// Calculate price changes between rows
+// Calculate price changes between consecutive entries
 for ($i = 0; $i < count($historyEntries); $i++) {
     if ($i < count($historyEntries) - 1) {
         $current  = $historyEntries[$i]['price'];
@@ -73,11 +59,11 @@ for ($i = 0; $i < count($historyEntries); $i++) {
 }
 
 function h($value) {
-    return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
 }
 
-$productTitle = !empty($historyEntries) ? $historyEntries[0]['title'] : 'Unknown Product';
-$productImage = !empty($historyEntries) ? $historyEntries[0]['image_url'] : null;
+$productTitle = $product['title'] ?? 'Unknown Product';
+$productImage = $product['image_url'] ?? null;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -103,7 +89,7 @@ $productImage = !empty($historyEntries) ? $historyEntries[0]['image_url'] : null
             margin: 0 auto;
         }
 
-        /* Top bar like dashboard header */
+        /* Top bar */
         .top-bar {
             display: flex;
             align-items: center;
@@ -165,7 +151,7 @@ $productImage = !empty($historyEntries) ? $historyEntries[0]['image_url'] : null
             color: #111827;
         }
 
-        /* Main card (same feel as dashboard container) */
+        /* Main card */
         .card {
             background: #ffffff;
             border-radius: 16px;
@@ -217,9 +203,21 @@ $productImage = !empty($historyEntries) ? $historyEntries[0]['image_url'] : null
             margin-bottom: 6px;
         }
 
- 
+        .product-url {
+            font-size: 13px;
+            color: #6b7280;
+        }
 
-        /* Stats cards – same style as dashboard cards */
+        .product-url a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+
+        .product-url a:hover {
+            text-decoration: underline;
+        }
+
+        /* Stats cards */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -246,12 +244,6 @@ $productImage = !empty($historyEntries) ? $historyEntries[0]['image_url'] : null
             font-size: 18px;
             font-weight: 600;
             color: #111827;
-        }
-
-        .stat-note {
-            font-size: 11px;
-            color: #9ca3af;
-            margin-top: 4px;
         }
 
         /* Table */
@@ -358,7 +350,7 @@ $productImage = !empty($historyEntries) ? $historyEntries[0]['image_url'] : null
             <a href="logout.php" class="btn btn-primary">Logout</a>
         </div>
         <div class="user-label">
-            Logged in as <span><?= h($_SESSION['user']) ?></span>
+            Logged in as <span><?= h($username) ?></span>
         </div>
     </div>
 
@@ -366,8 +358,7 @@ $productImage = !empty($historyEntries) ? $historyEntries[0]['image_url'] : null
     <div class="card">
         <h1>Price History</h1>
         <p class="subtitle">
-            Detailed price timeline for this Amazon product based on entries in
-            <code>price_history.csv</code>.
+            Detailed price timeline for this Amazon product from your database.
         </p>
 
         <!-- Product header -->
@@ -378,24 +369,15 @@ $productImage = !empty($historyEntries) ? $historyEntries[0]['image_url'] : null
 
             <div class="product-info">
                 <div class="product-title"><?= h($productTitle) ?></div>
-               <div class="product-url">
-    <a href="<?= h($productUrl) ?>" target="_blank">
-        <?= h(strlen($productUrl) > 60 ? substr($productUrl, 0, 60) . '...' : $productUrl) ?>
-    </a>
-</div>
-
+                <div class="product-url">
+                    <a href="<?= h($product['amazon_url']) ?>" target="_blank">
+                        <?= h(strlen($product['amazon_url']) > 60 ? substr($product['amazon_url'], 0, 60) . '...' : $product['amazon_url']) ?>
+                    </a>
+                </div>
             </div>
         </div>
 
-        <?php if (!empty($historyEntries)): ?>
-            <?php
-            $prices       = array_map(fn($e) => $e['price'], $historyEntries);
-            $currentPrice = $prices[0];
-            $lowestPrice  = min($prices);
-            $highestPrice = max($prices);
-            $avgPrice     = array_sum($prices) / count($prices);
-            ?>
-
+        <?php if (!empty($historyEntries) && $stats): ?>
             <!-- Stats -->
             <div class="stats-grid">
                 <div class="stat-card">
@@ -407,25 +389,25 @@ $productImage = !empty($historyEntries) ? $historyEntries[0]['image_url'] : null
                 <div class="stat-card">
                     <div class="stat-label">Lowest Price</div>
                     <div class="stat-value">
-                        PHP<?= number_format($lowestPrice, 2) ?>
+                        PHP<?= number_format($stats['lowest_price'], 2) ?>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Highest Price</div>
                     <div class="stat-value">
-                        PHP<?= number_format($highestPrice, 2) ?>
+                        PHP<?= number_format($stats['highest_price'], 2) ?>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Average Price</div>
                     <div class="stat-value">
-                        PHP<?= number_format($avgPrice, 2) ?>
+                        PHP<?= number_format($stats['average_price'], 2) ?>
                     </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-label">Total Checks</div>
                     <div class="stat-value">
-                        <?= count($historyEntries) ?>
+                        <?= $stats['total_checks'] ?>
                     </div>
                 </div>
             </div>
@@ -446,10 +428,10 @@ $productImage = !empty($historyEntries) ? $historyEntries[0]['image_url'] : null
                         <td class="timestamp">
                             <?php
                             try {
-                                $date = new DateTime($entry['timestamp'], new DateTimeZone('Asia/Manila'));
+                                $date = new DateTime($entry['checked_at'], new DateTimeZone('Asia/Manila'));
                                 echo $date->format('M d, Y g:i A');
                             } catch (Exception $e) {
-                                echo h($entry['timestamp']);
+                                echo h($entry['checked_at']);
                             }
                             ?>
                         </td>

@@ -1,19 +1,46 @@
 <?php
 session_start();
 
-$valid_username = "admin";
-$valid_password = "12345";
+// Redirect if already logged in
+if (isset($_SESSION['user_id'])) {
+    header("Location: index.php");
+    exit();
+}
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../src/Models/User.php';
+
+$error = '';
+$success = '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST['username'] ?? '';
+    $username = trim($_POST['username'] ?? '');
+    $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
-
-    if ($username === $valid_username && $password === $valid_password) {
-        $_SESSION['user'] = $username;
-        header("Location: index.php");
-        exit();
+    $confirmPassword = $_POST['confirm_password'] ?? '';
+    
+    // Validation
+    if (empty($username) || empty($email) || empty($password) || empty($confirmPassword)) {
+        $error = "All fields are required";
+    } elseif (strlen($username) < 3) {
+        $error = "Username must be at least 3 characters long";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = "Please enter a valid email address";
+    } elseif (strlen($password) < 8) {
+        $error = "Password must be at least 8 characters long";
+    } elseif ($password !== $confirmPassword) {
+        $error = "Passwords do not match";
     } else {
-        $error = "Invalid username or password!";
+        $userModel = new User();
+        $result = $userModel->register($username, $email, $password);
+        
+        if ($result['success']) {
+            $success = "Account created successfully! You can now log in.";
+            // Clear form
+            $_POST = array();
+        } else {
+            $error = $result['error'];
+        }
     }
 }
 ?>
@@ -21,7 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Login – Amazon Price Tracker</title>
+    <title>Register – Amazon Price Tracker</title>
     <style>
         /* Global */
         * {
@@ -41,7 +68,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             padding: 24px;
         }
 
-        /* Background “card” like dashboard */
         .page-wrapper {
             max-width: 1100px;
             width: 100%;
@@ -54,7 +80,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             align-items: center;
         }
 
-        /* Left side text / branding */
         .info-panel {
             flex: 1;
             min-width: 260px;
@@ -83,9 +108,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             font-size: 12px;
         }
 
-        /* Login card (right) – similar feel to dashboard .container / forms */
-        .login-box {
-            flex: 0 0 340px;
+        .register-box {
+            flex: 0 0 380px;
             background: #f9fafb;
             border-radius: 12px;
             padding: 24px 24px 28px;
@@ -93,20 +117,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             box-shadow: 0 10px 20px rgba(15,23,42,0.08);
         }
 
-        .login-title {
+        .register-title {
             font-size: 20px;
             font-weight: 600;
             color: #111827;
             margin-bottom: 4px;
         }
 
-        .login-sub {
+        .register-sub {
             font-size: 13px;
             color: #6b7280;
             margin-bottom: 16px;
         }
 
-        /* Error message – same style family as dashboard messages */
         .error {
             padding: 10px 12px;
             border-radius: 6px;
@@ -117,7 +140,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             border: 1px solid #fca5a5;
         }
 
-        /* Inputs */
+        .success {
+            padding: 10px 12px;
+            border-radius: 6px;
+            margin-bottom: 14px;
+            font-size: 13px;
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+
         .form-group {
             margin-bottom: 12px;
         }
@@ -131,6 +163,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         input[type="text"],
+        input[type="email"],
         input[type="password"] {
             width: 100%;
             padding: 10px 12px;
@@ -142,13 +175,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         input[type="text"]:focus,
+        input[type="email"]:focus,
         input[type="password"]:focus {
             outline: none;
             border-color: #2563eb;
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
         }
 
-        /* Button – same look as dashboard .btn .btn-primary */
         button[type="submit"] {
             width: 100%;
             padding: 10px 16px;
@@ -170,27 +203,35 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             box-shadow: 0 10px 20px rgba(37, 99, 235, 0.45);
         }
 
-        .hint {
-            font-size: 12px;
-            color: #9ca3af;
-            margin-top: 10px;
+        .login-link {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 16px;
             text-align: center;
         }
 
-        .hint code {
-            background: #111827;
-            color: #f9fafb;
-            padding: 2px 6px;
-            border-radius: 4px;
+        .login-link a {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
         }
 
-        /* Responsive for smaller screens */
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+
+        .password-hint {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
         @media (max-width: 768px) {
             .page-wrapper {
                 flex-direction: column;
                 padding: 24px;
             }
-            .login-box {
+            .register-box {
                 width: 100%;
             }
         }
@@ -199,23 +240,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
 
 <div class="page-wrapper">
-    <!-- Left side: branding text to match dashboard feel -->
     <div class="info-panel">
         <div class="info-badge">🛒 Amazon Price Tracker</div>
-        <h1 class="info-title">Welcome back, Admin</h1>
+        <h1 class="info-title">Create your account</h1>
         <p class="info-subtitle">
-            Log in to access your dashboard, monitor products, and track price history over time.
-            Your account is secured and only authorized users can view the tracker.
+            Join us to start tracking Amazon product prices. Monitor your favorite products, 
+            get price history insights, and never miss a deal. Your data is private and secure.
         </p>
     </div>
 
- 
-    <div class="login-box">
-        <h2 class="login-title">Sign in</h2>
-        <p class="login-sub">Use your login credentials to continue.</p>
+    <div class="register-box">
+        <h2 class="register-title">Register</h2>
+        <p class="register-sub">Create a new account to get started.</p>
 
         <?php if (!empty($error)): ?>
             <div class="error"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
+
+        <?php if (!empty($success)): ?>
+            <div class="success">
+                <?= htmlspecialchars($success) ?>
+                <br><a href="login.php" style="color: #065f46; font-weight: 600;">Click here to login</a>
+            </div>
         <?php endif; ?>
 
         <form method="POST" autocomplete="off">
@@ -225,7 +271,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     type="text"
                     id="username"
                     name="username"
-                    placeholder="Enter username"
+                    placeholder="Choose a username"
+                    value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
+                    required
+                    autofocus
+                    minlength="3"
+                >
+                <div class="password-hint">At least 3 characters</div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="your@email.com"
+                    value="<?= htmlspecialchars($_POST['email'] ?? '') ?>"
                     required
                 >
             </div>
@@ -236,15 +298,31 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     type="password"
                     id="password"
                     name="password"
-                    placeholder="Enter password"
+                    placeholder="Create a strong password"
                     required
+                    minlength="8"
+                >
+                <div class="password-hint">At least 8 characters</div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password</label>
+                <input
+                    type="password"
+                    id="confirm_password"
+                    name="confirm_password"
+                    placeholder="Re-enter your password"
+                    required
+                    minlength="8"
                 >
             </div>
 
-            <button type="submit">Log In</button>
-
-          
+            <button type="submit">Create Account</button>
         </form>
+
+        <div class="login-link">
+            Already have an account? <a href="login.php">Login here</a>
+        </div>
     </div>
 </div>
 
