@@ -1,4 +1,16 @@
 <?php
+session_start();
+
+// Check if user is logged in
+if (!isset($_SESSION['user'])) {
+    header("Location: login.php");
+    exit();
+}
+?>
+
+<?php
+
+
 // index.php – Price tracker with product management
 
 require __DIR__ . '/vendor/autoload.php';
@@ -220,268 +232,324 @@ function h(string $value): string {
 <head>
     <meta charset="UTF-8">
     <title>Price Tracker – Latest Prices</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: #f3f4f6;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1100px;
-            margin: 0 auto;
-            background: #ffffff;
-            border-radius: 12px;
-            padding: 20px 24px 24px;
-            box-shadow: 0 10px 25px rgba(15,23,42,0.1);
-        }
-        h1 {
-            margin-top: 0;
-            font-size: 24px;
-            color: #111827;
-        }
-        h2 {
-            font-size: 18px;
-            color: #111827;
-            margin-top: 24px;
-            margin-bottom: 12px;
-        }
-        p {
-            color: #4b5563;
-            margin-top: 4px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 16px;
-            font-size: 14px;
-        }
-        th, td {
-            padding: 10px 8px;
-            text-align: left;
-        }
-        th {
-            background: #f9fafb;
-            border-bottom: 1px solid #e5e7eb;
-            font-weight: 600;
-            color: #374151;
-        }
-        tr:nth-child(even) td {
-            background: #f9fafb;
-        }
-        tr:hover td {
-            background: #eef2ff;
-        }
-        td {
-            border-bottom: 1px solid #e5e7eb;
-            color: #111827;
-        }
-        .price {
-            font-weight: 600;
-        }
-        .no-data {
-            color: #9ca3af;
-            font-style: italic;
-        }
-        .timestamp {
-            font-size: 12px;
-            color: #6b7280;
-        }
-        a {
-            color: #2563eb;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        .badge {
-            display: inline-block;
-            padding: 2px 6px;
-            border-radius: 999px;
-            font-size: 11px;
-            background: #e5e7eb;
-            color: #4b5563;
-        }
-        .header-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        
-        /* Form styles */
-        .add-product-form {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 16px;
-            margin: 20px 0;
-        }
+   <style>
+    /* Base styles */
+    body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f3f4f6;
+        margin: 0;
+        padding: 20px;
+    }
+
+    .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 10px 25px rgba(15,23,42,0.1);
+    }
+
+    h1 {
+        margin-top: 0;
+        font-size: 28px;
+        color: #111827;
+    }
+
+    h2 {
+        font-size: 20px;
+        color: #111827;
+        margin-top: 24px;
+        margin-bottom: 12px;
+    }
+
+    p {
+        color: #4b5563;
+        margin-top: 4px;
+    }
+
+    /* Table styles */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 16px;
+        font-size: 14px;
+    }
+
+    th, td {
+        padding: 12px 10px;
+        text-align: left;
+    }
+
+    th {
+        background: #f9fafb;
+        border-bottom: 1px solid #e5e7eb;
+        font-weight: 600;
+        color: #374151;
+    }
+
+    tr:nth-child(even) td {
+        background: #f9fafb;
+    }
+
+    tr:hover td {
+        background: #eef2ff;
+    }
+
+    td {
+        border-bottom: 1px solid #e5e7eb;
+        color: #111827;
+    }
+
+    .price {
+        font-weight: 600;
+    }
+
+    .no-data {
+        color: #9ca3af;
+        font-style: italic;
+    }
+
+    .timestamp {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    a {
+        color: #2563eb;
+        text-decoration: none;
+    }
+
+    a:hover {
+        text-decoration: underline;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-size: 11px;
+        background: #e5e7eb;
+        color: #4b5563;
+    }
+
+    .header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    /* Form styles */
+    .add-product-form {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        margin: 20px 0;
+    }
+
+    .form-group {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .form-group input[type="url"] {
+        flex: 1;
+        min-width: 250px;
+        padding: 10px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+        font-family: inherit;
+    }
+
+    .form-group input[type="url"]:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    /* Buttons - consistent size & color */
+    .btn {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+        min-width: 120px;
+        text-align: center;
+    }
+
+    .btn-primary {
+        background: #2563eb;
+        color: #ffffff;
+    }
+
+    .btn-primary:hover {
+        background: #1d4ed8;
+    }
+
+    .btn-danger {
+        background: #dc2626;
+        color: #ffffff;
+    }
+
+    .btn-danger:hover {
+        background: #b91c1c;
+    }
+
+    .btn-history {
+        background: #6366f1;
+        color: #ffffff;
+    }
+
+    .btn-history:hover {
+        background: #4f46e5;
+    }
+
+    /* Message styles */
+    .message {
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin: 16px 0;
+        font-size: 14px;
+    }
+
+    .message-success {
+        background: #d1fae5;
+        color: #065f46;
+        border: 1px solid #6ee7b7;
+    }
+
+    .message-error {
+        background: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fca5a5;
+    }
+
+    .message-warning {
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fcd34d;
+    }
+
+    .message-info {
+        background: #dbeafe;
+        color: #1e40af;
+        border: 1px solid #93c5fd;
+    }
+
+    /* Action column */
+    .action-cell {
+        text-align: center;
+    }
+
+    .url-cell {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Product image */
+    .product-image {
+        width: 80px;
+        height: 80px;
+        object-fit: contain;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        background: #ffffff;
+    }
+
+    .product-image-cell {
+        text-align: center;
+        padding: 8px;
+    }
+
+    .no-image {
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f3f4f6;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        color: #9ca3af;
+        font-size: 11px;
+        text-align: center;
+        margin: 0 auto;
+    }
+
+    .product-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .product-details {
+        flex: 1;
+    }
+
+    /* Price change badges */
+    .price-change {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        margin-left: 8px;
+    }
+
+    .price-increase {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .price-decrease {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
         .form-group {
-            display: flex;
-            gap: 8px;
-            align-items: flex-start;
-            flex-wrap: wrap;
-        }
-        .form-group input[type="url"] {
-            flex: 1;
-            min-width: 300px;
-            padding: 10px 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 14px;
-            font-family: inherit;
-        }
-        .form-group input[type="url"]:focus {
-            outline: none;
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            flex-direction: column;
         }
         .btn {
-            padding: 10px 16px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: inherit;
+            width: 100%;
         }
-        .btn-primary {
-            background: #2563eb;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #1d4ed8;
-        }
-        .btn-danger {
-            background: #dc2626;
-            color: white;
-            padding: 6px 12px;
-            font-size: 12px;
-        }
-        .btn-danger:hover {
-            background: #b91c1c;
-        }
-        
-        /* Message styles */
-        .message {
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin: 16px 0;
-            font-size: 14px;
-        }
-        .message-success {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #6ee7b7;
-        }
-        .message-error {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #fca5a5;
-        }
-        .message-warning {
-            background: #fef3c7;
-            color: #92400e;
-            border: 1px solid #fcd34d;
-        }
-        .message-info {
-            background: #dbeafe;
-            color: #1e40af;
-            border: 1px solid #93c5fd;
-        }
-        
-        /* Action column */
-        .action-cell {
-            text-align: center;
-        }
-        
         .url-cell {
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            max-width: 150px;
         }
-        
-        /* Product image styles */
-        .product-image {
-            width: 80px;
-            height: 80px;
-            object-fit: contain;
-            border-radius: 6px;
-            border: 1px solid #e5e7eb;
-            background: #ffffff;
-        }
-        .product-image-cell {
-            text-align: center;
-            padding: 8px;
-        }
-        .no-image {
-            width: 80px;
-            height: 80px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #f3f4f6;
-            border-radius: 6px;
-            border: 1px solid #e5e7eb;
-            color: #9ca3af;
-            font-size: 11px;
-            text-align: center;
-            margin: 0 auto;
-        }
-        .product-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .product-details {
-            flex: 1;
-        }
-        
-        /* Price change styles */
-        .price-change {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 500;
-            margin-left: 8px;
-        }
-        .price-increase {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-        .price-decrease {
-            background: #d1fae5;
-            color: #065f46;
-        }
-        .btn-history {
-            background: #6366f1;
-            color: white;
-            padding: 6px 12px;
-            font-size: 12px;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .btn-history:hover {
-            background: #4f46e5;
-            text-decoration: none;
-        }
-    </style>
+    }
+</style>
+
 </head>
 <body>
 <div class="container">
-    <div class="header-row">
-        <h1>🛒 Amazon Price Tracker</h1>
+   <div class="header-row" style="justify-content: space-between; align-items: center;">
+    <h1>🛒 Amazon Price Tracker</h1>
+    <div>
         <span class="badge">
             <?= count($products) ?> product<?= count($products) === 1 ? '' : 's' ?> tracked
         </span>
+        <span style="margin-left:12px; color:#374151; font-size:14px;">
+            Logged in as <?= htmlspecialchars($_SESSION['user']) ?>
+        </span>
+        <a href="logout.php" class="btn btn-danger" style="margin-left: 12px;">Logout</a>
     </div>
+</div>
+
     <p>
         Monitor Amazon product prices and track price history over time.
     </p>
