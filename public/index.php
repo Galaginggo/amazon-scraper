@@ -413,6 +413,9 @@ function h($value) {
         <span style="margin-left:12px; color:#374151; font-size:14px;">
             Logged in as <?= h($username) ?>
         </span>
+        <?php if (isset($_SESSION['is_admin']) && $_SESSION['is_admin']): ?>
+            <a href="admin.php" class="btn btn-primary" style="margin-left: 12px; background: #f59e0b;">🛡️ Admin Panel</a>
+        <?php endif; ?>
         <a href="settings.php" class="btn btn-primary" style="margin-left: 12px;">⚙️ Settings</a>
         <a href="logout.php" class="btn btn-danger" style="margin-left: 8px;">Logout</a>
     </div>

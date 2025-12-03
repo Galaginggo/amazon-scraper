@@ -1,0 +1,10 @@
+tunnel: a72f262b-3fb2-476d-b207-f40556ed7bff
+credentials-file: C:\Users\calib\.cloudflared\a72f262b-3fb2-476d-b207-f40556ed7bff.json
+
+ingress:
+  - hostname: fromgabi-l.me
+    service: http://localhost:80
+    originRequest:
+      noTLSVerify: true
+      httpHostHeader: localhost
+  - service: http_status:404

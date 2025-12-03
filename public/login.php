@@ -27,6 +27,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $_SESSION['user_id'] = $result['user']['id'];
             $_SESSION['username'] = $result['user']['username'];
             $_SESSION['email'] = $result['user']['email'];
+            $_SESSION['is_admin'] = $result['user']['is_admin'] ?? false;
             
             // Redirect to dashboard
             header("Location: index.php");

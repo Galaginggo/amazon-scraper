@@ -63,7 +63,9 @@ function updateAllUsers() {
     
     try {
         $stmt = $db->prepare(
-            "SELECT u.id, u.username, us.* 
+            "SELECT u.id, u.username,
+                    us.auto_update_enabled, us.update_interval_minutes,
+                    us.exchange_rate, us.updated_at
              FROM users u
              INNER JOIN user_settings us ON u.id = us.user_id
              WHERE u.is_active = 1 AND us.auto_update_enabled = 1"

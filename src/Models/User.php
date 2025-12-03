@@ -64,7 +64,7 @@ class User {
     public function login($username, $password) {
         try {
             $stmt = $this->db->prepare(
-                "SELECT id, username, email, password_hash, is_active 
+                "SELECT id, username, email, password_hash, is_active, is_admin
                  FROM users WHERE username = ?"
             );
             
@@ -85,7 +85,8 @@ class User {
                     'user' => [
                         'id' => $user['id'],
                         'username' => $user['username'],
-                        'email' => $user['email']
+                        'email' => $user['email'],
+                        'is_admin' => (bool)$user['is_admin']
                     ]
                 ];
             }
@@ -247,6 +248,91 @@ class User {
         } catch (PDOException $e) {
             error_log("Error activating user: " . $e->getMessage());
             return false;
+        }
+    }
+    
+    /**
+     * Check if user is admin
+     */
+    public function isAdmin($userId) {
+            try {
+                $stmt = $this->db->prepare(
+                    "SELECT is_admin FROM users WHERE id = ?"
+                );
+                
+                $stmt->execute([$userId]);
+                $result = $stmt->fetch();
+                return $result ? (bool)$result['is_admin'] : false;
+            } catch (PDOException $e) {
+                error_log("Error checking admin status: " . $e->getMessage());
+                return false;
+        }
+    }
+    
+    /**
+     * Get all users (admin only)
+     */
+    public function getAllUsers() {
+            try {
+                $stmt = $this->db->prepare(
+                    "SELECT u.id, u.username, u.email, u.created_at, u.is_active, u.is_admin,
+                            COUNT(DISTINCT p.id) as product_count,
+                            COUNT(DISTINCT ph.id) as history_count
+                     FROM users u
+                     LEFT JOIN products p ON u.id = p.user_id
+                     LEFT JOIN price_history ph ON p.id = ph.product_id
+                     GROUP BY u.id
+                     ORDER BY u.created_at DESC"
+                );
+                
+                $stmt->execute();
+                return $stmt->fetchAll();
+            } catch (PDOException $e) {
+                error_log("Error getting all users: " . $e->getMessage());
+                return [];
+        }
+    }
+    
+    /**
+     * Delete user and all related data (admin only)
+     */
+    public function deleteUser($userId) {
+            try {
+                // The CASCADE DELETE in foreign keys will handle related records
+                $stmt = $this->db->prepare(
+                    "DELETE FROM users WHERE id = ?"
+                );
+                
+                return $stmt->execute([$userId]);
+            } catch (PDOException $e) {
+                error_log("Error deleting user: " . $e->getMessage());
+                return false;
+        }
+    }
+    
+    /**
+     * Get user statistics
+     */
+    public function getUserStats($userId) {
+            try {
+                $stmt = $this->db->prepare(
+                    "SELECT
+                        COUNT(DISTINCT p.id) as product_count,
+                        COUNT(DISTINCT ph.id) as total_checks,
+                        MIN(ph.checked_at) as first_check,
+                        MAX(ph.checked_at) as last_check
+                     FROM users u
+                     LEFT JOIN products p ON u.id = p.user_id
+                     LEFT JOIN price_history ph ON p.id = ph.product_id
+                     WHERE u.id = ?
+                     GROUP BY u.id"
+                );
+                
+                $stmt->execute([$userId]);
+                return $stmt->fetch();
+            } catch (PDOException $e) {
+                error_log("Error getting user stats: " . $e->getMessage());
+                return null;
         }
     }
 }

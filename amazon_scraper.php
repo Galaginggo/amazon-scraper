@@ -187,7 +187,8 @@ class AmazonScraper
     }
 }
 
-if (php_sapi_name() === 'cli') {
+// Only run CLI code if this file is executed directly, not when included
+if (php_sapi_name() === 'cli' && basename(__FILE__) === basename($_SERVER['SCRIPT_FILENAME'])) {
     $arg1 = $argv[1] ?? null;
 
     // Check for custom exchange rate
